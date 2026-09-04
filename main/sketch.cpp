@@ -7,6 +7,12 @@
 #include <Arduino.h>
 #include <Bluepad32.h>
 
+
+// GPIO pentru D-pad
+#define GPIO_UP     16
+#define GPIO_DOWN   17
+#define GPIO_LEFT   18
+#define GPIO_RIGHT  19
 //
 // README FIRST, README FIRST, README FIRST
 //
@@ -268,6 +274,20 @@ void processControllers() {
 
 // Arduino setup function. Runs in CPU 1
 void setup() {
+  
+  pinMode(GPIO_UP, OUTPUT);
+pinMode(GPIO_DOWN, OUTPUT);
+pinMode(GPIO_LEFT, OUTPUT);
+pinMode(GPIO_RIGHT, OUTPUT);
+
+// Stare inițială: HIGH = dezactivat
+digitalWrite(GPIO_UP, HIGH);
+digitalWrite(GPIO_DOWN, HIGH);
+digitalWrite(GPIO_LEFT, HIGH);
+digitalWrite(GPIO_RIGHT, HIGH);
+  
+  
+  
     Console.printf("Firmware: %s\n", BP32.firmwareVersion());
     const uint8_t* addr = BP32.localBdAddress();
     Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
