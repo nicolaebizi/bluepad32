@@ -6,6 +6,7 @@
 
 #include <Arduino.h>
 #include <Bluepad32.h>
+#include <esp32-ps2dev.h>
 
 
 // GPIO pentru D-pad
@@ -13,6 +14,7 @@
 #define GPIO_DOWN   17
 #define GPIO_LEFT   18
 #define GPIO_RIGHT  19
+#define PS2_ACTIVITY_LED 21
 //
 // README FIRST, README FIRST, README FIRST
 //
@@ -28,6 +30,15 @@
 //    CONFIG_BLUEPAD32_USB_CONSOLE_ENABLE=n
 
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
+
+// PS/2 keyboard output: CLOCK = GPIO22, DATA = GPIO23.
+// The library creates its PS/2 service task on CPU 0 by default.
+#define PS2_CLOCK 22
+#define PS2_DATA  23
+esp32_ps2dev::PS2Keyboard ps2Keyboard(PS2_CLOCK, PS2_DATA);
+
+// Previous Bluetooth keyboard state, used to generate make/break events only once.
+static bool previousKeyboardState[256] = {false};
 
 // This callback gets called any time a new gamepad is connected.
 // Up to 4 gamepads can be connected at the same time.
@@ -153,55 +164,22 @@ void dumpBalanceBoard(ControllerPtr ctl) {
 }
 
 void processGamepad(ControllerPtr ctl) {
-    // There are different ways to query whether a button is pressed.
-    // By query each button individually:
-    //  a(), b(), x(), y(), l1(), etc...
-    if (ctl->a()) {
-        static int colorIdx = 0;
-        // Some gamepads like DS4 and DualSense support changing the color LED.
-        // It is possible to change it by calling:
-        switch (colorIdx % 3) {
-            case 0:
-                // Red
-                ctl->setColorLED(255, 0, 0);
-                break;
-            case 1:
-                // Green
-                ctl->setColorLED(0, 255, 0);
-                break;
-            case 2:
-                // Blue
-                ctl->setColorLED(0, 0, 255);
-                break;
-        }
-        colorIdx++;
-    }
+    uint8_t dpad = ctl->dpad();
 
-    if (ctl->b()) {
-        // Turn on the 4 LED. Each bit represents one LED.
-        static int led = 0;
-        led++;
-        // Some gamepads like the DS3, DualSense, Nintendo Wii, Nintendo Switch
-        // support changing the "Player LEDs": those 4 LEDs that usually indicate
-        // the "gamepad seat".
-        // It is possible to change them by calling:
-        ctl->setPlayerLEDs(led & 0x0f);
-    }
+    // D-pad -> GPIO, activ LOW
+    digitalWrite(GPIO_UP,    (dpad & DPAD_UP)    ? LOW : HIGH);
+    digitalWrite(GPIO_DOWN,  (dpad & DPAD_DOWN)  ? LOW : HIGH);
+    digitalWrite(GPIO_LEFT,  (dpad & DPAD_LEFT)  ? LOW : HIGH);
+    digitalWrite(GPIO_RIGHT, (dpad & DPAD_RIGHT) ? LOW : HIGH);
 
-    if (ctl->x()) {
-        // Some gamepads like DS3, DS4, DualSense, Switch, Xbox One S, Stadia support rumble.
-        // It is possible to set it by calling:
-        // Some controllers have two motors: "strong motor", "weak motor".
-        // It is possible to control them independently.
-        ctl->playDualRumble(0 /* delayedStartMs */, 250 /* durationMs */, 0x80 /* weakMagnitude */,
-                            0x40 /* strongMagnitude */);
-    }
+    // Restul este doar pentru afișare/debug
+    if (ctl->a())
+        Console.println("A pressed");
 
-    // Another way to query controller data is by getting the buttons() function.
-    // See how the different "dump*" functions dump the Controller info.
+    if (ctl->b())
+        Console.println("B pressed");
+
     dumpGamepad(ctl);
-
-    // See ArduinoController.h for all the available functions.
 }
 
 void processMouse(ControllerPtr ctl) {
@@ -217,30 +195,113 @@ void processMouse(ControllerPtr ctl) {
 }
 
 void processKeyboard(ControllerPtr ctl) {
-    if (!ctl->isAnyKeyPressed())
-        return;
+    // Convert Bluepad32 HID usage IDs to esp32-ps2dev scan-code keys.
+    auto hidToPs2 = [](uint8_t hid, esp32_ps2dev::scancodes::Key& out) -> bool {
+        using namespace esp32_ps2dev::scancodes;
 
-    // This is just an example.
-    if (ctl->isKeyPressed(Keyboard_A)) {
-        // Do Something
-        Console.println("Key 'A' pressed");
+        switch (hid) {
+            case 4:  out = K_A; break; case 5:  out = K_B; break;
+            case 6:  out = K_C; break; case 7:  out = K_D; break;
+            case 8:  out = K_E; break; case 9:  out = K_F; break;
+            case 10: out = K_G; break; case 11: out = K_H; break;
+            case 12: out = K_I; break; case 13: out = K_J; break;
+            case 14: out = K_K; break; case 15: out = K_L; break;
+            case 16: out = K_M; break; case 17: out = K_N; break;
+            case 18: out = K_O; break; case 19: out = K_P; break;
+            case 20: out = K_Q; break; case 21: out = K_R; break;
+            case 22: out = K_S; break; case 23: out = K_T; break;
+            case 24: out = K_U; break; case 25: out = K_V; break;
+            case 26: out = K_W; break; case 27: out = K_X; break;
+            case 28: out = K_Y; break; case 29: out = K_Z; break;
+
+            case 30: out = K_1; break; case 31: out = K_2; break;
+            case 32: out = K_3; break; case 33: out = K_4; break;
+            case 34: out = K_5; break; case 35: out = K_6; break;
+            case 36: out = K_7; break; case 37: out = K_8; break;
+            case 38: out = K_9; break; case 39: out = K_0; break;
+
+            case 40: out = K_RETURN; break;
+            case 41: out = K_ESCAPE; break;
+            case 42: out = K_BACKSPACE; break;
+            case 43: out = K_TAB; break;
+            case 44: out = K_SPACE; break;
+            case 45: out = K_MINUS; break;
+            case 46: out = K_EQUALS; break;
+            case 47: out = K_LEFTBRACKET; break;
+            case 48: out = K_RIGHTBRACKET; break;
+            case 49: out = K_BACKSLASH; break;
+            case 51: out = K_SEMICOLON; break;
+            case 52: out = K_QUOTE; break;
+            case 54: out = K_COMMA; break;
+            case 55: out = K_PERIOD; break;
+            case 56: out = K_SLASH; break;
+
+            case 58: out = K_F1; break;  case 59: out = K_F2; break;
+            case 60: out = K_F3; break;  case 61: out = K_F4; break;
+            case 62: out = K_F5; break;  case 63: out = K_F6; break;
+            case 64: out = K_F7; break;  case 65: out = K_F8; break;
+            case 66: out = K_F9; break;  case 67: out = K_F10; break;
+            case 68: out = K_F11; break; case 69: out = K_F12; break;
+
+            case 70: out = K_PRINT; break;
+            case 71: out = K_SCROLLOCK; break;
+            case 72: out = K_PAUSE; break;
+            case 73: out = K_INSERT; break;
+            case 74: out = K_HOME; break;
+            case 75: out = K_PAGEUP; break;
+            case 76: out = K_DELETE; break;
+            case 77: out = K_END; break;
+            case 78: out = K_PAGEDOWN; break;
+            case 79: out = K_RIGHT; break;
+            case 80: out = K_LEFT; break;
+            case 81: out = K_DOWN; break;
+            case 82: out = K_UP; break;
+
+            case 224: out = K_LCTRL; break;
+            case 225: out = K_LSHIFT; break;
+            case 226: out = K_LALT; break;
+            case 227: out = K_LSUPER; break;
+            case 228: out = K_RCTRL; break;
+            case 229: out = K_RSHIFT; break;
+            case 230: out = K_RALT; break;
+            case 231: out = K_RSUPER; break;
+
+            default:
+                return false;  // Ignore HID keys without a PS/2 mapping.
+        }
+        return true;
+    };
+
+    for (int key = Keyboard_A; key <= Keyboard_RightMeta; key++) {
+        bool pressed = ctl->isKeyPressed(static_cast<KeyboardKey>(key));
+        bool wasPressed = previousKeyboardState[key];
+
+        if (pressed != wasPressed) {
+            esp32_ps2dev::scancodes::Key ps2Key;
+
+            if (hidToPs2(static_cast<uint8_t>(key), ps2Key)) {
+                if (pressed) {
+                    ps2Keyboard.keydown(ps2Key);
+                } else {
+                    ps2Keyboard.keyup(ps2Key);
+                }
+
+                // LED ON briefly for every PS/2 key event.
+                digitalWrite(PS2_ACTIVITY_LED, HIGH);
+                delay(10);
+                digitalWrite(PS2_ACTIVITY_LED, LOW);
+
+                Console.printf(
+                    "PS/2 %s HID key 0x%02X\n",
+                    pressed ? "DOWN" : "UP",
+                    key
+                );
+            }
+
+            previousKeyboardState[key] = pressed;
+        }
     }
 
-    // Don't do "else" here.
-    // Multiple keys can be pressed at the same time.
-    if (ctl->isKeyPressed(Keyboard_LeftShift)) {
-        // Do something else
-        Console.println("Key 'LEFT SHIFT' pressed");
-    }
-
-    // Don't do "else" here.
-    // Multiple keys can be pressed at the same time.
-    if (ctl->isKeyPressed(Keyboard_LeftArrow)) {
-        // Do something else
-        Console.println("Key 'Left Arrow' pressed");
-    }
-
-    // See "dumpKeyboard" for possible things to query.
     dumpKeyboard(ctl);
 }
 
@@ -275,7 +336,7 @@ void processControllers() {
 // Arduino setup function. Runs in CPU 1
 void setup() {
   
-  pinMode(GPIO_UP, OUTPUT);
+pinMode(GPIO_UP, OUTPUT);
 pinMode(GPIO_DOWN, OUTPUT);
 pinMode(GPIO_LEFT, OUTPUT);
 pinMode(GPIO_RIGHT, OUTPUT);
@@ -291,6 +352,14 @@ digitalWrite(GPIO_RIGHT, HIGH);
     Console.printf("Firmware: %s\n", BP32.firmwareVersion());
     const uint8_t* addr = BP32.localBdAddress();
     Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+
+    // LED activity indicator: GPIO21 -> 330 ohm -> LED -> GND.
+    pinMode(PS2_ACTIVITY_LED, OUTPUT);
+    digitalWrite(PS2_ACTIVITY_LED, LOW);
+
+    // Run the PS/2 service task on CPU 0 explicitly.
+    ps2Keyboard.config(10, 0);
+    ps2Keyboard.begin();
 
     // Setup the Bluepad32 callbacks, and the default behavior for scanning or not.
     // By default, if the "startScanning" parameter is not passed, it will do the "start scanning".
@@ -337,5 +406,5 @@ void loop() {
     // https://stackoverflow.com/questions/66278271/task-watchdog-got-triggered-the-tasks-did-not-reset-the-watchdog-in-time
 
     //     vTaskDelay(1);
-    delay(150);
+    delay(5);
 }
