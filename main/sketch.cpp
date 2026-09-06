@@ -15,6 +15,7 @@
 #define GPIO_DOWN   17
 #define GPIO_LEFT   18
 #define GPIO_RIGHT  19
+#define BT_STATUS_LED 2
 #define GPIO_FOC    25
 #define PS2_ACTIVITY_LED 21
 //
@@ -32,6 +33,22 @@
 //    CONFIG_BLUEPAD32_USB_CONSOLE_ENABLE=n
 
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
+
+    
+void updateBluetoothStatusLed() {
+    bool connected = false;
+
+    for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+        if (myControllers[i] != nullptr &&
+            myControllers[i]->isConnected()) {
+            connected = true;
+            break;
+        }
+    }
+
+    digitalWrite(BT_STATUS_LED, connected ? HIGH : LOW);
+}
+
 
 // PS/2 keyboard output: CLOCK = GPIO22, DATA = GPIO23.
 // The library creates its PS/2 service task on CPU 0 by default.
@@ -55,6 +72,7 @@ void onConnectedController(ControllerPtr ctl) {
             Console.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName(), properties.vendor_id,
                            properties.product_id);
             myControllers[i] = ctl;
+            updateBluetoothStatusLed();
             foundEmptySlot = true;
             break;
         }
@@ -71,6 +89,7 @@ void onDisconnectedController(ControllerPtr ctl) {
         if (myControllers[i] == ctl) {
             Console.printf("CALLBACK: Controller disconnected from index=%d\n", i);
             myControllers[i] = nullptr;
+            updateBluetoothStatusLed();
             foundController = true;
             break;
         }
@@ -255,6 +274,9 @@ void processControllers() {
 
 // Arduino setup function. Runs in CPU 1
 void setup() {
+    pinMode(BT_STATUS_LED, OUTPUT);
+    digitalWrite(BT_STATUS_LED, LOW);
+
   
 pinMode(GPIO_UP, OUTPUT);
 pinMode(GPIO_DOWN, OUTPUT);
