@@ -1,0 +1,17 @@
+firmware_stanga-dreapta.bin
+
+GPIO15 este selectorul de layout:
+
+GPIO15 la GND (LOW):
+- UP    = D-pad UP
+- DOWN  = D-pad DOWN
+- LEFT  = D-pad LEFT
+- RIGHT = D-pad RIGHT
+- FOC   = L1
+
+GPIO15 lasat liber (HIGH, INPUT_PULLUP):
+- Y = UP
+- A = DOWN
+- X = LEFT
+- B = RIGHT
+- FOC = R1
