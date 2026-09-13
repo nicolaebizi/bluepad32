@@ -1,0 +1,16 @@
+{
+  "name": "esp32-ps2dev",
+  "version": "1.0.0",
+  "author": "hrko",
+  "maintainer": "hrko <hrko@r-c.dev>",
+  "sentence": "ESP32 library to emulate PS2 keyboard/mouse for Arduino framework",
+  "paragraph": "ESP32 library to emulate PS2 keyboard/mouse for Arduino framework.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hrko/esp32-ps2dev"
+  },
+  "platforms": ["espressif32"],
+  "frameworks": ["arduino"],
+  "license": "MIT",
+  "headers": "esp32-ps2dev.h"
+}
