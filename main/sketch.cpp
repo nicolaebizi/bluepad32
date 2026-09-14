@@ -214,24 +214,14 @@ void processGamepad(ControllerPtr ctl) {
     }
 
     // Daca se schimba layout-ul, eliberam orice tasta virtuala ramasa apasata.
+    // (aceleasi 6 taste sunt eliberate indiferent de directia schimbarii)
     if (rightLayout != prevLayout) {
-        if (!rightLayout) {
-            // Se trece pe LOW: eventualele taste virtuale din HIGH se elibereaza.
-            ps2Keyboard.keyHid_send(Keyboard_UpArrow, false);
-            ps2Keyboard.keyHid_send(Keyboard_DownArrow, false);
-            ps2Keyboard.keyHid_send(Keyboard_LeftArrow, false);
-            ps2Keyboard.keyHid_send(Keyboard_RightArrow, false);
-            ps2Keyboard.keyHid_send(Keyboard_Enter, false);
-            ps2Keyboard.keyHid_send(Keyboard_0, false);
-        } else {
-            // Se trece pe HIGH: eventualele taste virtuale din LOW se elibereaza.
-            ps2Keyboard.keyHid_send(Keyboard_UpArrow, false);
-            ps2Keyboard.keyHid_send(Keyboard_DownArrow, false);
-            ps2Keyboard.keyHid_send(Keyboard_LeftArrow, false);
-            ps2Keyboard.keyHid_send(Keyboard_RightArrow, false);
-            ps2Keyboard.keyHid_send(Keyboard_Enter, false);
-            ps2Keyboard.keyHid_send(Keyboard_0, false);
-        }
+        ps2Keyboard.keyHid_send(Keyboard_UpArrow, false);
+        ps2Keyboard.keyHid_send(Keyboard_DownArrow, false);
+        ps2Keyboard.keyHid_send(Keyboard_LeftArrow, false);
+        ps2Keyboard.keyHid_send(Keyboard_RightArrow, false);
+        ps2Keyboard.keyHid_send(Keyboard_Enter, false);
+        ps2Keyboard.keyHid_send(Keyboard_0, false);
 
         for (int i = 0; i < 6; i++) {
             prevVirtualState[i] = false;
@@ -420,46 +410,36 @@ void setup() {
     // HIGH = DREAPTA / A-B-X-Y
     pinMode(GPIO_LAYOUT_SELECT, INPUT_PULLUP);
 
-  
-pinMode(GPIO_UP, OUTPUT);
-pinMode(GPIO_DOWN, OUTPUT);
-pinMode(GPIO_LEFT, OUTPUT);
-pinMode(GPIO_RIGHT, OUTPUT);
+    pinMode(GPIO_UP, OUTPUT);
+    pinMode(GPIO_DOWN, OUTPUT);
+    pinMode(GPIO_LEFT, OUTPUT);
+    pinMode(GPIO_RIGHT, OUTPUT);
     pinMode(GPIO_FOC, OUTPUT);
 
-// Stare inițială: HIGH = dezactivat
-digitalWrite(GPIO_UP, HIGH);
-digitalWrite(GPIO_DOWN, HIGH);
-digitalWrite(GPIO_LEFT, HIGH);
-digitalWrite(GPIO_RIGHT, HIGH);
+    // Stare inițială: HIGH = dezactivat
+    digitalWrite(GPIO_UP, HIGH);
+    digitalWrite(GPIO_DOWN, HIGH);
+    digitalWrite(GPIO_LEFT, HIGH);
+    digitalWrite(GPIO_RIGHT, HIGH);
     digitalWrite(GPIO_FOC, HIGH);
-  
-  
-  
+
     Console.printf("Firmware: %s\n", BP32.firmwareVersion());
     const uint8_t* addr = BP32.localBdAddress();
     Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
-    // LED activity indicator: GPIO21 -> 330 ohm -> LED -> GND.
+    // LED activity: GPIO21 -> 330 ohm -> LED -> GND.
     pinMode(PS2_ACTIVITY_LED, OUTPUT);
     digitalWrite(PS2_ACTIVITY_LED, LOW);
 
-    // Run the PS/2 service task on CPU 0 explicitly.
-    ps2Keyboard.config(10, 0);
     // PS/2 pins: open-drain with pull-ups.
     gpio_set_direction((gpio_num_t)PS2_CLOCK, GPIO_MODE_OUTPUT_OD);
     gpio_set_direction((gpio_num_t)PS2_DATA, GPIO_MODE_OUTPUT_OD);
     gpio_set_pull_mode((gpio_num_t)PS2_CLOCK, GPIO_PULLUP_ONLY);
     gpio_set_pull_mode((gpio_num_t)PS2_DATA, GPIO_PULLUP_ONLY);
 
-    // LED activity: GPIO21 -> 330 ohm -> LED -> GND.
-    pinMode(PS2_ACTIVITY_LED, OUTPUT);
-    digitalWrite(PS2_ACTIVITY_LED, LOW);
-
     // PS/2 service on CPU0.
     ps2Keyboard.config(10, 0);
     ps2Keyboard.begin();
-
 
     // Setup the Bluepad32 callbacks, and the default behavior for scanning or not.
     // By default, if the "startScanning" parameter is not passed, it will do the "start scanning".
