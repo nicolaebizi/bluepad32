@@ -1,3 +1,5 @@
+![PS4 Controller](Foto/PS4%20CONTROLLER.png)
+
 # bluepad32 — Gamepad PS4 & Keyboard Bluetooth for Leo 1024 Pentagon
 
 Bluetooth gamepad (PS4) and keyboard support for the **Leo 1024 Pentagon**, built on top of [Bluepad32](https://github.com/ricardoquesada/bluepad32) for ESP32.
