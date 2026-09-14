@@ -6,8 +6,8 @@ Bluetooth gamepad (PS4) and keyboard support for the **Leo 1024 Pentagon**, buil
 
 Full build documentation is available in both English and Romanian:
 
-- 🇬🇧 [Build Guide (English)](documentie%20constructie/Document%20for%20Build/BUILD_GUIDE_EN.MD)
-- 🇷🇴 [Ghid de construcție (Română)](documentie%20constructie/Document%20for%20Build/BUILD_GUIDE_RO.MD)
+- 🇬🇧 [Build Guide (English)](documentie%20constructie/Document%20for%20Build/BUILD_GUIDE_EN.md)
+- 🇷🇴 [Ghid de construcție (Română)](documentie%20constructie/Document%20for%20Build/BUILD_GUIDE_RO.md)
 
 ## Quick start
 
